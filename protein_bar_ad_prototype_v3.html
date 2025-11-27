@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>パーソナライズ映像広告プロトタイプ（プロテインバー・v3）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f5f5f7;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+    }
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: 1px solid #d0d0d7;
+      font-size: 0.9rem;
+      background: #fafafa;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    button {
+      background: #111827;
+      color: #fff;
+      cursor: pointer;
+      border: none;
+      font-weight: 600;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      max-height: 260px;
+      overflow: auto;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+    }
+    .row > div {
+      flex: 1;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: -4px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>パーソナライズ映像広告プロトタイプ（プロテインバー・v3）</h1>
+  <p style="font-size:0.9rem; color:#4b5563;">
+    被験者の簡単な情報を入力 → 嗜好プロファイルJSONを生成し、<br>
+    それに<strong>かなり強く依存した</strong>プロテインバー広告の英語プロンプトを作るデモ画面です。<br>
+    v3では「好きなコンテンツジャンル」が文章の中に直接反映されます。
+  </p>
+
+  <div class="card">
+    <h2 style="font-size:1.1rem;">① ユーザー情報の入力</h2>
+    <div class="row">
+      <div>
+        <label for="age">年齢</label>
+        <input id="age" type="number" min="10" max="80" placeholder="例: 21">
+      </div>
+      <div>
+        <label for="gender">性別</label>
+        <select id="gender">
+          <option value="">選択してください</option>
+          <option value="female">female</option>
+          <option value="male">male</option>
+          <option value="non-binary">non-binary</option>
+          <option value="other">other</option>
+          <option value="unknown">prefer not to say</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="country">居住国</label>
+    <input id="country" type="text" placeholder="例: Japan">
+
+    <label for="sites">最近よく使うサイト・アプリ（改行区切り）</label>
+    <textarea id="sites" placeholder="例:
+YouTube（K-POPのMV）
+Instagram（カフェ）
+X（推しグル）
+Spotify"></textarea>
+
+    <label for="genres">好きなコンテンツジャンル（カンマ区切り）</label>
+    <input id="genres" type="text" placeholder="例: K-POP, Vlog, アニメ, ゲーム実況, カフェ紹介">
+
+    <label for="mood">今日の気分キーワード（カンマ区切り）</label>
+    <input id="mood" type="text" placeholder="例: わくわく, 落ち着きたい, 夜の街">
+
+    <p class="note">
+      ※ v3では「ジャンル」から、<br>
+      ・映像のテンポ/トーン<br>
+      ・シーン（カフェ / 夜の街 / 勉強机 / ジムなど）<br>
+      ・訴求ポイント（美容 / 集中力 / 回復など）<br>
+      ・「K-POPっぽいMV」「Vlogっぽいカメラ」「アニメっぽい表情」などのスタイル文<br>
+      を自動で変えています。
+    </p>
+
+    <button id="generateProfile">嗜好プロファイルと広告プロンプトを生成</button>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.1rem;">② 生成された嗜好プロファイル(JSON)</h2>
+    <pre id="profileOutput">// ここにJSONが表示されます</pre>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.1rem;">③ プロテインバー広告の英語プロンプト（動画生成AI用）</h2>
+    <pre id="adPromptOutput">// ここに英語プロンプトが表示されます</pre>
+  </div>
+
+  <script>
+    function textIncludesAny(text, keywords) {
+      const lower = text.toLowerCase();
+      return keywords.some(k => lower.includes(k));
+    }
+
+    function guessMediaStyle(genresText, moodText) {
+      const genres = genresText.toLowerCase();
+      const mood = moodText.toLowerCase();
+
+      let pace = "medium";
+      if (textIncludesAny(genres, ["k-pop", "kpop", "ケーポ", "케이팝", "dance", "idol", "mv"]) ||
+          textIncludesAny(mood, ["わくわく", "excited", "テンション"])) {
+        pace = "fast";
+      }
+      if (textIncludesAny(genres, ["asmr", "healing", "lofi", "lo-fi"]) ||
+          textIncludesAny(mood, ["落ち着きたい", "relax", "calm"])) {
+        pace = "slow";
+      }
+
+      let tone = "positive";
+      if (textIncludesAny(mood, ["しんどい", "つかれ", "疲れ", "不安", "だるい"])) {
+        tone = "calm";
+      }
+      if (textIncludesAny(mood, ["真面目", "ストイック", "集中"])) {
+        tone = "serious";
+      }
+
+      const visual_keywords = [];
+      if (textIncludesAny(genres, ["k-pop", "kpop", "ケーポ", "idol"])) {
+        visual_keywords.push("neon lights", "stage-like lighting");
+      }
+      if (textIncludesAny(genres, ["カフェ", "cafe"])) {
+        visual_keywords.push("cozy cafe interior", "latte art on the table");
+      }
+      if (textIncludesAny(genres, ["vlog", "ライフスタイル", "lifestyle"])) {
+        visual_keywords.push("casual handheld camera feel");
+      }
+      if (textIncludesAny(genres, ["anime", "アニメ"])) {
+        visual_keywords.push("slightly exaggerated, anime-inspired expressions");
+      }
+      if (textIncludesAny(genres, ["game", "gaming", "e-sports", "ゲーム"])) {
+        visual_keywords.push("subtle neon glow and UI-like overlays");
+      }
+      if (textIncludesAny(mood, ["夜", "night"]) || textIncludesAny(genres, ["night"])) {
+        visual_keywords.push("city night", "soft bokeh lights");
+      }
+      if (visual_keywords.length === 0) {
+        visual_keywords.push("bright natural daylight", "simple clean background");
+      }
+
+      // キャラクターの推定（かなりラフ）
+      let preferred_character = "young adult";
+      if (textIncludesAny(genres, ["student", "受験", "勉強", "study"])) {
+        preferred_character = "college student";
+      }
+      if (textIncludesAny(genres, ["office", "仕事", "社会人"])) {
+        preferred_character = "young office worker";
+      }
+
+      return {
+        pace,
+        tone,
+        visual_keywords,
+        preferred_character
+      };
+    }
+
+    function guessUsageScene(interests, moodText) {
+      const joined = interests.join(", ").toLowerCase() + " " + moodText.toLowerCase();
+
+      if (textIncludesAny(joined, ["gym", "ワークアウト", "筋トレ", "workout", "training", "sports"])) {
+        return "at a stylish gym right after a light workout, taking a short break ";
+      }
+      if (textIncludesAny(joined, ["勉強", "study", "exam", "テスト", "レポート", "研究"])) {
+        return "at a tidy study desk with notebooks and a laptop, during a late-night study session ";
+      }
+      if (textIncludesAny(joined, ["カフェ", "cafe"])) {
+        return "in a cozy cafe corner with a drink on the table, scrolling through their phone ";
+      }
+      if (textIncludesAny(joined, ["k-pop", "kpop", "idol", "dance", "ケーポ"])) {
+        return "walking through the city at night with headphones on, moving in rhythm to upbeat music ";
+      }
+      if (textIncludesAny(joined, ["game", "gaming", "e-sports", "ゲーム"])) {
+        return "in a gaming room filled with LED lights, taking a quick break between matches ";
+      }
+      if (textIncludesAny(joined, ["仕事", "office", "残業", "デスクワーク", "社畜"])) {
+        return "in a modern office space during a busy workday ";
+      }
+      return "during a busy day in their everyday life ";
+    }
+
+    function guessBenefit(interests, moodText) {
+      const joined = interests.join(", ").toLowerCase() + " " + moodText.toLowerCase();
+
+      if (textIncludesAny(joined, ["ダイエット", "diet", "美容", "beauty", "スタイル"])) {
+        return "supports a slim and healthy body while still feeling like a small treat.";
+      }
+      if (textIncludesAny(joined, ["勉強", "study", "exam", "テスト", "研究"])) {
+        return "helps maintain focus and steady energy for studying and creative work.";
+      }
+      if (textIncludesAny(joined, ["gym", "ワークアウト", "筋トレ", "training", "sports"])) {
+        return "helps quick recovery and sustained energy without feeling too heavy.";
+      }
+      if (textIncludesAny(joined, ["夜更かし", "徹夜", "night", "深夜"])) {
+        return "gently boosts energy in the late hours without relying on sugary snacks.";
+      }
+      return "provides convenient, tasty energy to keep going through a hectic day.";
+    }
+
+    function stylePhrasesFromInterests(interests) {
+      const joined = interests.join(", ").toLowerCase();
+      const phrases = [];
+
+      if (textIncludesAny(joined, ["k-pop", "kpop", "ケーポ", "케이팝"])) {
+        phrases.push("The editing and rhythm subtly reference K-pop music videos, with sharp cuts and expressive timing.");
+      }
+      if (textIncludesAny(joined, ["vlog"])) {
+        phrases.push("The camera work has a casual vlog-like feeling, as if the viewer is following the character's real day.");
+      }
+      if (textIncludesAny(joined, ["anime", "アニメ"])) {
+        phrases.push("Facial expressions and framing are lightly inspired by anime-style storytelling.");
+      }
+      if (textIncludesAny(joined, ["game", "gaming", "ゲーム"])) {
+        phrases.push("The lighting and pacing are influenced by gaming highlight reels and streaming clips.");
+      }
+      if (textIncludesAny(joined, ["カフェ", "cafe"])) {
+        phrases.push("Overall atmosphere is warm and cozy like popular cafe reels on social media.");
+      }
+
+      return phrases.join(" ");
+    }
+
+    function buildProteinBarAdPrompt(profile) {
+      const vk = profile.media_style.visual_keywords.join(", ");
+      const tone = profile.media_style.tone;
+      const pace = profile.media_style.pace;
+
+      const interests = profile.interest_domains || [];
+      const mood = (profile.mood_text || "");
+
+      const scene = guessUsageScene(interests, mood);
+      const benefit = guessBenefit(interests, mood);
+      const stylePhrases = stylePhrasesFromInterests(interests);
+
+      const genresText = interests.length > 0
+        ? interests.join(", ")
+        : "their usual favorite content";
+
+      return (
+        `A ${pace}-paced, ${tone} advertising video for a protein bar aimed at a ` +
+        `${profile.demographic.age || "young"}-year-old ${profile.demographic.gender} in ${profile.demographic.country}. ` +
+        `The visual mood and editing are inspired by the viewer's favorite content genres: ${genresText}. ` +
+        `Show a ${profile.media_style.preferred_character} ${scene}` +
+        `and enjoying the protein bar in scenes with ${vk}. ` +
+        `Use dynamic camera movements (a mix of wide shots and intimate close-ups), smooth cuts, and a modern, stylish look. ` +
+        `${stylePhrases} ` +
+        `Emphasize how the bar ${benefit}`
+      );
+    }
+
+    document.getElementById("generateProfile").addEventListener("click", () => {
+      const age = parseInt(document.getElementById("age").value || "0", 10);
+      const gender = document.getElementById("gender").value || "unknown";
+      const country = document.getElementById("country").value || "Unknown";
+      const sites = document.getElementById("sites").value.trim().split(/\n+/).filter(Boolean);
+      const genres = document.getElementById("genres").value || "";
+      const mood = document.getElementById("mood").value || "";
+
+      const media_style = guessMediaStyle(genres, mood);
+
+      const interest_domains = genres.split(",").map(s => s.trim()).filter(Boolean);
+
+      const profile = {
+        demographic: {
+          age: age || null,
+          gender,
+          country
+        },
+        interest_domains,
+        media_style,
+        ad_preference: {
+          message_type: "mixed",
+          info_density: "low",
+          humor_tolerance: "medium"
+        },
+        raw_sites: sites,
+        mood_text: mood
+      };
+
+      document.getElementById("profileOutput").textContent =
+        JSON.stringify(profile, null, 2);
+
+      document.getElementById("adPromptOutput").textContent =
+        buildProteinBarAdPrompt(profile);
+    });
+  </script>
+</body>
+</html>
