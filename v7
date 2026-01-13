@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>パーソナライズ映像広告デモ v7（日本人向け・比較UI）</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","游ゴシック","Yu Gothic",sans-serif;background:#f5f5f7;margin:0;color:#111;}
+  header{background:#0f172a;color:#fff;padding:16px 24px;}
+  header h1{margin:0;font-size:20px;}
+  header p{margin:4px 0 0;font-size:13px;opacity:.85}
+  main{max-width:1300px;margin:auto;padding:20px;}
+  .layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,.06);}
+  h2{font-size:17px;margin:0 0 8px;}
+  h3{font-size:13px;margin:12px 0 6px;color:#111;}
+  .caption{font-size:11px;color:#6b7280;margin:0 0 8px;line-height:1.5;}
+  textarea{width:100%;min-height:160px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;padding:10px;border-radius:10px;border:1px solid #d1d5db;box-sizing:border-box;resize:vertical;}
+  input,select{
+    width:100%; box-sizing:border-box; border-radius:10px; border:1px solid #d1d5db;
+    padding:8px 10px; font-size:12px; background:#fff;
+  }
+  label{font-size:11px;color:#374151;display:block;margin:6px 0 4px;}
+  button{border:none;border-radius:999px;padding:7px 14px;font-size:12px;cursor:pointer;}
+  .primary{background:#4f46e5;color:#fff;}
+  .primary:hover{background:#4338ca;}
+  .outline{background:#fff;border:1px solid #d1d5db;color:#111;}
+  .outline:hover{background:#f3f4f6;}
+  .btn-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+  pre{background:#0f172a;color:#e5e7eb;padding:12px;border-radius:10px;font-size:12px;overflow-x:auto;margin:0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .promptBox{background:#111827;color:#e5e7eb;padding:12px;border-radius:10px;white-space:pre-wrap;font-size:12px;min-height:160px;}
+  .note{font-size:11px;color:#6b7280;line-height:1.5;margin-top:6px;}
+  .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;background:#e5e7eb;color:#111;margin-left:6px;}
+  .hr{border:none;border-top:1px solid #e5e7eb;margin:12px 0;}
+  @media(max-width:1000px){.layout{grid-template-columns:1fr;} .grid3{grid-template-columns:1fr;}}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>パーソナライズ映像広告 Webデモ v7（日本人向け・比較UI）</h1>
+  <p>行動ログ→AI推定 / 本人申告 → プロテインバー広告（日本語）｜非パーソナライズと並列比較</p>
+</header>
+
+<main>
+  <div class="layout">
+    <!-- 左：入力・操作 -->
+    <section class="card">
+      <h2>① 行動ログ（ダミー）</h2>
+      <p class="caption">日本の生活文脈（通学・通勤、コンビニ、カフェ、ジム等）を前提にしたダミー行動ログです。デモ1〜20から読み込めます。</p>
+      <textarea id="logInput" placeholder="ここに行動ログ（ダミー）を貼り付け"></textarea>
+
+      <div class="btn-row" id="demoButtons"></div>
+
+      <div class="btn-row">
+        <button class="primary" onclick="inferAIProfile()">AI推定プロファイルを作成</button>
+        <button class="outline" onclick="applySelfFromAI()">本人申告をAI推定から初期化</button>
+      </div>
+
+      <hr class="hr">
+
+      <h2>② 本人申告プロファイル（編集可）<span class="pill">Self-reported</span></h2>
+      <p class="caption">アンケートで「本人が選ぶ/申告する」想定の入力欄です。ここを変更すると“本人申告プロンプト”が変わります。</p>
+
+      <div class="grid2">
+        <div>
+          <label>生活シーン（例：通勤電車／夜カフェ／ジム後）</label>
+          <input id="self_scene" placeholder="例：夜カフェで作業、通勤電車、ジム後">
+        </div>
+        <div>
+          <label>いま欲しい状態（例：集中／回復／気分転換）</label>
+          <select id="self_goal">
+            <option value="集中したい">集中したい</option>
+            <option value="回復したい">回復したい</option>
+            <option value="気分転換したい">気分転換したい</option>
+            <option value="手軽に栄養を取りたい">手軽に栄養を取りたい</option>
+            <option value="リラックスしたい">リラックスしたい</option>
+            <option value="テンションを上げたい">テンションを上げたい</option>
+          </select>
+        </div>
+
+        <div>
+          <label>映像テンポ</label>
+          <select id="self_tempo">
+            <option value="ゆっくり">ゆっくり</option>
+            <option value="中">中</option>
+            <option value="やや速い">やや速い</option>
+            <option value="速い">速い</option>
+          </select>
+        </div>
+        <div>
+          <label>トーン（雰囲気）</label>
+          <select id="self_tone">
+            <option value="落ち着き">落ち着き</option>
+            <option value="集中">集中</option>
+            <option value="前向き">前向き</option>
+            <option value="高揚感">高揚感</option>
+            <option value="やさしい">やさしい</option>
+            <option value="清潔感">清潔感</option>
+          </select>
+        </div>
+
+        <div style="grid-column:1 / -1;">
+          <label>好きな雰囲気/要素（カンマ区切り）</label>
+          <input id="self_motifs" placeholder="例：雨音, 木目, ノート, ラテアート, ネオン">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" onclick="generateAllPrompts()">3種類の広告プロンプトを生成（比較）</button>
+        <button class="outline" onclick="copyAll()">3種類まとめてコピー</button>
+      </div>
+
+      <p class="note">
+        ※ v7では「AI推定」「本人申告」「非パーソナライズ」を同条件で並べ、比較実験のデモが可能です。<br>
+        ※ 実研究では、AI推定はGPTで置換し、本人申告はアンケート項目として収集します。
+      </p>
+    </section>
+
+    <!-- 右：出力 -->
+    <section class="card">
+      <h2>③ 出力（比較）</h2>
+      <p class="caption">左から「AI推定」「本人申告」「非パーソナライズ（一般CM）」です。JSONと広告プロンプトを並列比較できます。</p>
+
+      <div class="grid3">
+        <div>
+          <h3>AI推定プロファイル（JSON）</h3>
+          <pre id="aiProfileView">{ }</pre>
+          <h3>AI推定プロンプト</h3>
+          <div class="promptBox" id="aiPrompt"></div>
+        </div>
+
+        <div>
+          <h3>本人申告プロファイル（JSON）</h3>
+          <pre id="selfProfileView">{ }</pre>
+          <h3>本人申告プロンプト</h3>
+          <div class="promptBox" id="selfPrompt"></div>
+        </div>
+
+        <div>
+          <h3>非パーソナライズ（一般向け）</h3>
+          <pre id="npProfileView">{ }</pre>
+          <h3>非パーソナライズプロンプト</h3>
+          <div class="promptBox" id="npPrompt"></div>
+        </div>
+      </div>
+
+      <p class="note">
+        ※「身体知」領域（手・口元・咀嚼・開封動作）は破綻が出やすいため、プロンプト内で明示的に注意喚起しています。
+      </p>
+    </section>
+  </div>
+</main>
+
+<script>
+/* =========================
+   20人分：日本の生活文脈のダミー行動ログ
+========================= */
+const demoLogs = {
+  1: `YouTube: 早朝ルーティン（5:30起き）
+Instagram保存: お弁当 / 作り置き / 朝活
+X: 朝の静かな時間がいちばん集中できる`,
+  2: `YouTube: 勉強Vlog（図書館・自習室）
+Instagram保存: ノート術 / 文房具
+X: 修論が進まない…集中力ほしい`,
+  3: `YouTube: 夜カフェ作業BGM
+Instagram保存: 都内カフェ / ラテアート
+X: 夜に作業することが多い、カフェ行きたい`,
+  4: `YouTube: ジム初心者メニュー
+Instagram保存: トレーニングウェア
+X: 運動後の回復を意識したい`,
+  5: `YouTube: ランニングフォーム解説
+Instagram保存: ランニングコース
+X: 走った後に小腹が空く`,
+  6: `YouTube: 料理ASMR（咀嚼音）
+Instagram保存: おいしそうなスイーツ
+X: 癒されたい、食べ物の動画見てる`,
+  7: `YouTube: アニメLo-fi 作業用
+Instagram保存: 落ち着く部屋づくり
+X: 静かに作業したい気分`,
+  8: `YouTube: ゲーム実況（深夜）
+Instagram保存: ゲーミングデスク
+X: 夜中テンション上がる、眠気と戦ってる`,
+  9: `YouTube: K-POP ダンス練習
+Instagram保存: 韓国コスメ / 推し活
+X: かわいい世界観が好き、テンション上げたい`,
+  10:`YouTube: ミニマル生活 / 片付け
+Instagram保存: シンプルな部屋
+X: ごちゃごちゃしたの苦手、落ち着くのが好き`,
+  11:`YouTube: 通勤電車の過ごし方
+Instagram保存: 便利グッズ
+X: 朝の満員電車しんどい、手軽に済ませたい`,
+  12:`YouTube: コンビニ新商品レビュー
+Instagram保存: コンビニスイーツ
+X: ついコンビニ寄っちゃう`,
+  13:`YouTube: 部活（バレー）練習メニュー
+Instagram保存: スポーツ系リール
+X: 練習後にタンパク質取りたい`,
+  14:`YouTube: 美容ルーティン
+Instagram保存: スキンケア / ヘアケア
+X: 食生活も整えたい、美容に良いものが気になる`,
+  15:`YouTube: 仕事効率化（ToDo・Notion）
+Instagram保存: デスク環境
+X: 仕事の集中を切らしたくない`,
+  16:`YouTube: 旅Vlog（国内・温泉）
+Instagram保存: 旅先カフェ
+X: リフレッシュしたい、非日常が好き`,
+  17:`YouTube: 夜景シネマ映像 / 街のB-roll
+Instagram保存: 都会の夜景
+X: 雰囲気ある映像が好き`,
+  18:`YouTube: 子育て時短（食事・家事）
+Instagram保存: 時短レシピ
+X: とにかく時間がない、パッと食べたい`,
+  19:`YouTube: 推しのライブ映像まとめ
+Instagram保存: ライブ現場レポ
+X: ライブ前後って体力使う、栄養ほしい`,
+  20:`YouTube: 雨の日作業BGM
+Instagram保存: 静かなカフェ
+X: 雨の日は落ち着いて作業したい`
+};
+
+// デモボタン生成
+const btnWrap = document.getElementById("demoButtons");
+for (let i=1; i<=20; i++){
+  const b = document.createElement("button");
+  b.className = "outline";
+  b.textContent = `デモ${i}`;
+  b.onclick = () => loadDemo(i);
+  btnWrap.appendChild(b);
+}
+
+// 状態保持
+let lastAIProfile = null;
+
+// ロード
+function loadDemo(n){
+  document.getElementById("logInput").value = demoLogs[n] || "";
+  clearOutputs();
+  inferAIProfile();      // デモはワンクリックで見せたいので自動推定
+  applySelfFromAI();     // 本人申告も初期化（必要なら編集して差を作れる）
+}
+
+// クリア
+function clearOutputs(){
+  document.getElementById("aiProfileView").textContent = "{ }";
+  document.getElementById("selfProfileView").textContent = "{ }";
+  document.getElementById("npProfileView").textContent = "{ }";
+  document.getElementById("aiPrompt").textContent = "";
+  document.getElementById("selfPrompt").textContent = "";
+  document.getElementById("npPrompt").textContent = "";
+}
+
+// AI推定（簡易）
+function inferAIProfile(){
+  const text = (document.getElementById("logInput").value || "").toLowerCase();
+  if (!text.trim()){
+    alert("行動ログを入力するか、デモボタンを押してください。");
+    return;
+  }
+
+  const profile = {
+    種別: "AI推定",
+    対象地域: "日本（通学・通勤、コンビニ、カフェ、ジム等）",
+    テンポ: "中",
+    トーン: "ニュートラル",
+    舞台: "室内（一般）",
+    視覚モチーフ: [],
+    想定シチュエーション: "日常の小腹満たし",
+    訴求軸: "手軽さ",
+    推定根拠キーワード: []
+  };
+
+  const add = (arr, v) => { if (!arr.includes(v)) arr.push(v); };
+
+  // 朝/通勤
+  if (text.includes("朝") || text.includes("早朝") || text.includes("通勤") || text.includes("満員電車")){
+    profile.テンポ = "やや速い";
+    profile.トーン = "きびきび・前向き";
+    profile.舞台 = "朝の自宅〜通勤電車";
+    profile.想定シチュエーション = "移動中・出発前の時短補給";
+    profile.訴求軸 = "時短・手軽さ";
+    add(profile.視覚モチーフ, "朝日／窓光");
+    add(profile.視覚モチーフ, "駅・ホーム");
+    add(profile.推定根拠キーワード, "朝/通勤");
+  }
+
+  // 勉強/作業
+  if (text.includes("勉強") || text.includes("修論") || text.includes("作業") || text.includes("図書館") || text.includes("notion") || text.includes("仕事効率")){
+    profile.テンポ = "中";
+    profile.トーン = "集中・静けさ";
+    profile.舞台 = text.includes("カフェ") ? "カフェの作業席" : "自習室／デスク";
+    profile.想定シチュエーション = "作業の合間の集中補給";
+    profile.訴求軸 = "集中サポート";
+    add(profile.視覚モチーフ, "ノート／PC");
+    add(profile.視覚モチーフ, "ペン先の動き");
+    add(profile.推定根拠キーワード, "勉強/作業");
+  }
+
+  // 夜/雰囲気/雨
+  if (text.includes("夜") || text.includes("深夜") || text.includes("夜景") || text.includes("雨の日")){
+    profile.テンポ = "中〜ゆっくり";
+    profile.トーン = "しっとり・没入";
+    profile.舞台 = text.includes("夜景") ? "都会の夜（B-roll）" : "夜の室内／夜カフェ";
+    profile.想定シチュエーション = "夜の作業・気分転換";
+    profile.訴求軸 = "気分転換";
+    add(profile.視覚モチーフ, "ネオン／街灯");
+    add(profile.視覚モチーフ, "雨粒／反射光");
+    add(profile.推定根拠キーワード, "夜/雰囲気");
+  }
+
+  // 運動
+  if (text.includes("ジム") || text.includes("ランニング") || text.includes("トレーニング") || text.includes("部活") || text.includes("バレー")){
+    profile.テンポ = "速い";
+    profile.トーン = "活力・達成感";
+    profile.舞台 = text.includes("ランニング") ? "河川敷／公園ラン" : "ジム／体育館";
+    profile.想定シチュエーション = "運動後の回復補給";
+    profile.訴求軸 = "回復・タンパク質";
+    add(profile.視覚モチーフ, "汗／呼吸");
+    add(profile.視覚モチーフ, "スポーツバッグ");
+    add(profile.推定根拠キーワード, "運動");
+  }
+
+  // 癒し/Lo-fi/ASMR
+  if (text.includes("asmr") || text.includes("lo-fi") || text.includes("lofi") || text.includes("癒") || text.includes("静か") || text.includes("まったり")){
+    profile.テンポ = "ゆっくり";
+    profile.トーン = "やさしい・温かい";
+    profile.舞台 = "静かな部屋／落ち着くカフェ";
+    profile.想定シチュエーション = "休憩時間のリラックス補給";
+    profile.訴求軸 = "やさしい満足感";
+    add(profile.視覚モチーフ, "木目／やわらかい照明");
+    add(profile.視覚モチーフ, "開封音");
+    add(profile.推定根拠キーワード, "癒し/Lo-fi");
+  }
+
+  // 推し活/K-POP/ライブ/韓国
+  if (text.includes("k-pop") || text.includes("推し") || text.includes("ライブ") || text.includes("韓国") || text.includes("ダンス")){
+    profile.テンポ = "速い";
+    profile.トーン = "高揚感・ポップ";
+    profile.舞台 = "街中／イベント前後";
+    profile.想定シチュエーション = "外出中のテンション補給";
+    profile.訴求軸 = "気分UP・エネルギー";
+    add(profile.視覚モチーフ, "カラフルなネオン");
+    add(profile.視覚モチーフ, "手持ちグッズ");
+    add(profile.推定根拠キーワード, "推し活/K-POP");
+  }
+
+  // コンビニ/時短
+  if (text.includes("コンビニ") || text.includes("時短") || text.includes("時間がない") || text.includes("パッと") || text.includes("手軽")){
+    profile.テンポ = "やや速い";
+    profile.トーン = "軽快・実用";
+    profile.舞台 = "コンビニ／自宅玄関";
+    profile.想定シチュエーション = "買ってすぐ食べる";
+    profile.訴求軸 = "手軽さ";
+    add(profile.視覚モチーフ, "コンビニの棚");
+    add(profile.視覚モチーフ, "レジ袋の音");
+    add(profile.推定根拠キーワード, "コンビニ/時短");
+  }
+
+  // ミニマル
+  if (text.includes("ミニマル") || text.includes("片付け") || text.includes("シンプル")){
+    profile.トーン = "清潔感・ミニマル";
+    profile.視覚モチーフ = profile.視覚モチーフ.filter(x => x !== "カラフルなネオン");
+    add(profile.視覚モチーフ, "白・グレー基調");
+    add(profile.視覚モチーフ, "整ったデスク");
+    add(profile.推定根拠キーワード, "ミニマル");
+  }
+
+  profile.視覚モチーフ = Array.from(new Set(profile.視覚モチーフ));
+  profile.推定根拠キーワード = Array.from(new Set(profile.推定根拠キーワード));
+
+  lastAIProfile = profile;
+  document.getElementById("aiProfileView").textContent = JSON.stringify(profile, null, 2);
+}
+
+// 本人申告をAI推定から初期化
+function applySelfFromAI(){
+  if (!lastAIProfile){
+    alert("先にAI推定プロファイルを作成してください。");
+    return;
+  }
+  document.getElementById("self_scene").value = lastAIProfile.舞台;
+  document.getElementById("self_goal").value = goalFromAppeal(lastAIProfile.訴求軸);
+  document.getElementById("self_tempo").value = normalizeTempo(lastAIProfile.テンポ);
+  document.getElementById("self_tone").value = toneFromText(lastAIProfile.トーン);
+  document.getElementById("self_motifs").value = (lastAIProfile.視覚モチーフ || []).join(", ");
+}
+
+// 訴求軸→本人の「欲しい状態」へ寄せる
+function goalFromAppeal(appeal){
+  if ((appeal||"").includes("集中")) return "集中したい";
+  if ((appeal||"").includes("回復")) return "回復したい";
+  if ((appeal||"").includes("気分")) return "気分転換したい";
+  if ((appeal||"").includes("時短") || (appeal||"").includes("手軽")) return "手軽に栄養を取りたい";
+  if ((appeal||"").includes("満足") || (appeal||"").includes("やさしい")) return "リラックスしたい";
+  if ((appeal||"").includes("エネルギー") || (appeal||"").includes("気分UP")) return "テンションを上げたい";
+  return "手軽に栄養を取りたい";
+}
+
+function normalizeTempo(t){
+  const s = (t||"").replace(/\s/g,"");
+  if (s.includes("ゆっくり")) return "ゆっくり";
+  if (s.includes("速い") && !s.includes("やや")) return "速い";
+  if (s.includes("やや速い")) return "やや速い";
+  if (s.includes("中")) return "中";
+  return "中";
+}
+
+function toneFromText(t){
+  const s = (t||"");
+  if (s.includes("集中")) return "集中";
+  if (s.includes("前向き")) return "前向き";
+  if (s.includes("高揚")) return "高揚感";
+  if (s.includes("やさしい") || s.includes("温かい")) return "やさしい";
+  if (s.includes("清潔感") || s.includes("ミニマル")) return "清潔感";
+  return "落ち着き";
+}
+
+// 3種類まとめて生成
+function generateAllPrompts(){
+  // AIプロファイル
+  if (!lastAIProfile){
+    inferAIProfile();
+    if (!lastAIProfile) return;
+  }
+
+  const aiProfile = lastAIProfile;
+
+  // 本人申告プロファイル
+  const selfProfile = {
+    種別: "本人申告",
+    対象地域: "日本（本人申告に基づく）",
+    テンポ: document.getElementById("self_tempo").value,
+    トーン: document.getElementById("self_tone").value,
+    舞台: document.getElementById("self_scene").value || "（未入力）",
+    視覚モチーフ: splitMotifs(document.getElementById("self_motifs").value),
+    想定シチュエーション: document.getElementById("self_goal").value,
+    訴求軸: mapAppealFromGoal(document.getElementById("self_goal").value),
+    推定根拠キーワード: ["本人申告"]
+  };
+
+  // 非パーソナライズ（一般CM）
+  const npProfile = {
+    種別: "非パーソナライズ（一般向け）",
+    対象地域: "日本（一般向け）",
+    テンポ: "中",
+    トーン: "明るくニュートラル",
+    舞台: "日常の一般的な室内／外出先（特定しない）",
+    視覚モチーフ: ["清潔感", "商品クローズアップ", "生活の一瞬"],
+    想定シチュエーション: "誰でも当てはまる“日常の小腹”",
+    訴求軸: "おいしさ・手軽さ・栄養（一般訴求）",
+    推定根拠キーワード: ["一般向けテンプレート"]
+  };
+
+  document.getElementById("selfProfileView").textContent = JSON.stringify(selfProfile, null, 2);
+  document.getElementById("npProfileView").textContent = JSON.stringify(npProfile, null, 2);
+
+  // それぞれのプロンプト生成
+  document.getElementById("aiPrompt").textContent = makePrompt(aiProfile, "AI推定");
+  document.getElementById("selfPrompt").textContent = makePrompt(selfProfile, "本人申告");
+  document.getElementById("npPrompt").textContent = makePrompt(npProfile, "非パーソナライズ");
+}
+
+function splitMotifs(v){
+  const arr = (v||"").split(",").map(s=>s.trim()).filter(Boolean);
+  return Array.from(new Set(arr));
+}
+
+function mapAppealFromGoal(goal){
+  if (goal === "集中したい") return "集中サポート";
+  if (goal === "回復したい") return "回復・タンパク質";
+  if (goal === "気分転換したい") return "気分転換";
+  if (goal === "手軽に栄養を取りたい") return "時短・手軽さ";
+  if (goal === "リラックスしたい") return "やさしい満足感";
+  if (goal === "テンションを上げたい") return "気分UP・エネルギー";
+  return "手軽さ";
+}
+
+// プロンプト（日本CM文脈）
+function makePrompt(p, label){
+  const motifs = (p.視覚モチーフ && p.視覚モチーフ.length) ? p.視覚モチーフ.join("、") : "日常の小物";
+  const goalLine = p.想定シチュエーション || "日常";
+
+  return `【${label}｜日本向け・映像広告プロンプト（プロテインバー固定）】
+
+目的：${goalLine}の文脈で、プロテインバーが「${p.訴求軸}」に役立つことを“雰囲気と所作”で自然に伝える。
+対象：${p.対象地域}
+
+映像のテンポ：${p.テンポ}
+全体トーン：${p.トーン}
+舞台：${p.舞台}
+視覚モチーフ：${motifs}
+
+構成（15秒想定）：
+冒頭は舞台の空気感が伝わるカットから開始する。次に登場人物が自然な流れでプロテインバーを取り出し、開封して一口食べる。食べながら行動（移動、作業、運動後の片付け等）を続け、最後は「${p.訴求軸}」が生活の中で効いていると感じられる余韻で締める。テロップは最小限にし、過剰な説明は避ける。
+
+身体知に関する重要指示：
+手の形、指、開封、噛む・咀嚼、口元の動きが不自然にならないよう最優先で自然さを確保する。食べ物の質感や欠け方、包装のしわ・反射なども破綻しないよう丁寧に描写する。`;
+}
+
+// 3種類まとめてコピー
+function copyAll(){
+  const ai = document.getElementById("aiPrompt").textContent.trim();
+  const se = document.getElementById("selfPrompt").textContent.trim();
+  const np = document.getElementById("npPrompt").textContent.trim();
+  if (!ai && !se && !np){
+    alert("まだプロンプトが生成されていません。");
+    return;
+  }
+  const all = [ai, se, np].filter(Boolean).join("\n\n---\n\n");
+  navigator.clipboard.writeText(all).then(()=>alert("3種類のプロンプトをまとめてコピーしました。")).catch(()=>alert("コピーに失敗しました。"));
+}
+</script>
+</body>
+</html>
